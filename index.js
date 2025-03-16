@@ -6,6 +6,9 @@ const { createClient } = require("@supabase/supabase-js");
 const app = express();
 app.use(express.json());
 app.use(cors());
+const cors = require("cors");
+app.use(cors({ origin: "https://curious-cendol-9b3d9a.netlify.app/" }));
+
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
