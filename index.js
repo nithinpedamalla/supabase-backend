@@ -4,11 +4,12 @@ const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
-app.use(express.json());
 const cors = require("cors");
 //app.use(cors());
-app.use(cors({ origin: "https://curious-cendol-9b3d9a.netlify.app/" }));
+const allowedOrigin = "https://curious-cendol-9b3d9a.netlify.app"; // No trailing slash
 
+app.use(cors({ origin: allowedOrigin }));
+app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
