@@ -12,37 +12,33 @@ app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+console.log("SUPABASE_URL:", process.env.SUPABASE_URL); // Debugging
+console.log("SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY ? "Loaded" : "Missing");
 
-app.post("/signup", async (req, res) => {
+router.post("/signup", async (req, res) => {
     const { email, password } = req.body;
-    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    const { data, error } = await supabase.from("users").insert([{ email, password }]);
 
     if (error) return res.status(400).json({ error: error.message });
-    res.json({ message: "Signup successful!", data });
+
+    res.status(201).json({ message: "User created successfully", data });
 });
 
-app.post("/login", async (req, res) => {
+router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
-    // Check if the user exists
-    const { data: user, error: fetchError } = await supabase
-        .from("auth.users")
-        .select("id")
+    const { data, error } = await supabase
+        .from("users")
+        .select("*")
         .eq("email", email)
+        .eq("password", password)
         .single();
 
-    if (fetchError || !user) {
-        return res.status(400).json({ error: "User not found. Please sign up first." });
-    }
+    if (error || !data) return res.status(401).json({ error: "Invalid credentials" });
 
-    // Proceed with login
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) return res.status(400).json({ error: error.message });
-
-    res.json({ message: "Login successful!", data });
+    res.json({ message: "Login successful", user: data });
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
