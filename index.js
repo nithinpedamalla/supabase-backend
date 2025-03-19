@@ -32,12 +32,12 @@ router.post("/signup", async (req, res) => {
     }
 
     // Hash password before storing
-    const hashedPassword = await bcrypt.hash(password, 10);
+   // const hashedPassword = await bcrypt.hash(password, 10);
     console.log("hashed passowrd");
 
     const { data, error } = await supabase.from("users").insert([{ 
         email: String(email), 
-        password: String(hashedPassword) 
+        password: String(password) 
     }]);
     console.log( "After hased password");
 
@@ -58,16 +58,10 @@ router.post("/login", async (req, res) => {
         .from("users")
         .select("email, password")
         .eq("email", email)
+        .eq("password", password)
         .single();
 
     if (error || !user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    // Compare password with hashed password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
         return res.status(401).json({ error: "Invalid credentials" });
     }
 
