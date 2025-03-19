@@ -18,6 +18,7 @@ console.log("SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY ? "Loaded" : "Mi
 // Signup Route
 router.post("/signup", async (req, res) => {
     const { email, password } = req.body;
+    console.log("in signup");
 
     // Check if user already exists
     const { data: existingUser, error: checkError } = await supabase
@@ -32,12 +33,14 @@ router.post("/signup", async (req, res) => {
 
     // Hash password before storing
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("hashed passowrd");
 
     const { data, error } = await supabase.from("users").insert([{ email, password: hashedPassword }]);
+    console.log( "After hased password");
 
     
 if (error) {
-    console.error("Insert Error:", error.message);
+    console.log("Insert Error:", error.message);
     return res.status(400).json({ error: error.message });
 }
     res.status(201).json({ message: "User created successfully", data });
