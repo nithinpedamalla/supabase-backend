@@ -35,8 +35,11 @@ router.post("/signup", async (req, res) => {
 
     const { data, error } = await supabase.from("users").insert([{ email, password: hashedPassword }]);
 
-    if (error) return res.status(400).json({ error: error.message });
-
+    
+if (error) {
+    console.error("Insert Error:", error.message);
+    return res.status(400).json({ error: error.message });
+}
     res.status(201).json({ message: "User created successfully", data });
 });
 
