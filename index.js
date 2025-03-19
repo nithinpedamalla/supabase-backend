@@ -35,7 +35,10 @@ router.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log("hashed passowrd");
 
-    const { data, error } = await supabase.from("users").insert([{ email, password: hashedPassword }]);
+    const { data, error } = await supabase.from("users").insert([{ 
+        email: String(email), 
+        password: String(hashedPassword) 
+    }]);
     console.log( "After hased password");
 
     
