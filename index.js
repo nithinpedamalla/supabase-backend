@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
-const bcrypt = require("bcrypt");
 
 const app = express();
 const router = express.Router();
@@ -15,48 +14,16 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
 console.log("SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY ? "Loaded" : "Missing");
 
-// // Signup Route
-// router.post("/signup", async (req, res) => {
-//     const { email, password } = req.body;
-//     console.log("in signup");
-
-//     // Check if user already exists
-//     const { data: existingUser, error: checkError } = await supabase
-//         .from("users")
-//         .select("email")
-//         .eq("email", email)
-//         .single();
-
-//     if (existingUser) {
-//         return res.status(400).json({ error: "User already exists" });
-//     }
-
-//     // Hash password before storing
-//    // const hashedPassword = await bcrypt.hash(password, 10);
-//     console.log("hashed passowrd");
-
-//     const { data, error } = await supabase.from("users").insert([{ 
-//         email: String(email), 
-//         password: String(password) 
-//     }]);
-//     console.log( "After hased password");
-
-    
-// if (error) {
-//     console.log("Insert Error:", error.message);
-//     return res.status(400).json({ error: error.message });
-// }
-//     res.status(201).json({ message: "User created successfully", data });
-// });
-
+// Signup with email & phone verification
 router.post("/signup", async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, phone } = req.body;
 
-        // Step 1: Sign up using Supabase Auth (sends verification email)
+        // Step 1: Sign up using Supabase Auth (sends email confirmation & phone OTP)
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
-            password
+            password,
+            phone
         });
 
         if (authError) {
@@ -64,10 +31,10 @@ router.post("/signup", async (req, res) => {
             return res.status(400).json({ error: authError.message });
         }
 
-        // Step 2: Store email and password in 'users' table
+        // Step 2: Store user details in 'users' table
         const { data, error } = await supabase
             .from("users")
-            .insert([{ email, password }]);
+            .insert([{ email, password, phone, phone_verified: false }]);
 
         if (error) {
             console.error("Database Insert Error:", error.message);
@@ -75,7 +42,7 @@ router.post("/signup", async (req, res) => {
         }
 
         res.status(201).json({
-            message: "Signup successful. Check your email for verification.",
+            message: "Signup successful. Verify email and phone.",
             user: authData
         });
 
@@ -85,30 +52,41 @@ router.post("/signup", async (req, res) => {
     }
 });
 
+// Send OTP for phone verification
+router.post("/send-otp", async (req, res) => {
+    const { phone } = req.body;
+
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ message: "OTP sent successfully!" });
+});
+
+// Verify phone OTP
+router.post("/verify-otp", async (req, res) => {
+    const { phone, otp } = req.body;
+
+    const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    // Update `phone_verified` in the database
+    await supabase.from("users").update({ phone_verified: true }).eq("phone", phone);
+
+    res.json({ message: "Phone number verified!" });
+});
+
 // Login Route
-// router.post("/login", async (req, res) => {
-//     const { email, password } = req.body;
-
-//     // Fetch user data
-//     const { data: user, error } = await supabase
-//         .from("users")
-//         .select("email, password")
-//         .eq("email", email)
-//         .eq("password", password)
-//         .single();
-
-//     if (error || !user) {
-//         return res.status(401).json({ error: "Invalid credentials" });
-//     }
-
-//     res.json({ message: "Login successful", user: { email: user.email } });
-// });
-
 router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Step 1: Authenticate with Supabase
+        // Authenticate with Supabase
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -118,15 +96,19 @@ router.post("/login", async (req, res) => {
             return res.status(401).json({ error: "Invalid credentials or email not verified" });
         }
 
-        // Step 2: Check if user exists in 'users' table
+        // Check if phone is verified
         const { data: user, error: userError } = await supabase
             .from("users")
-            .select("email")
+            .select("email, phone_verified")
             .eq("email", email)
             .single();
 
         if (userError || !user) {
             return res.status(401).json({ error: "User not found in database" });
+        }
+
+        if (!user.phone_verified) {
+            return res.status(403).json({ error: "Phone number not verified" });
         }
 
         res.json({ message: "Login successful", session: authData.session });
@@ -136,7 +118,6 @@ router.post("/login", async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
-
 
 // Use the router
 app.use("/", router);
